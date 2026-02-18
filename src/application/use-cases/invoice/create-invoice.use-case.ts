@@ -5,6 +5,7 @@ import { InvoiceEstado } from "@/domain/value-objects/invoice-estado.vo";
 import { SunatEstado } from "@/domain/value-objects/sunat-estado.vo";
 import { StockInsuficienteError, NotFoundError } from "@/domain/errors/domain.errors";
 import { CreateInvoiceDto } from "@/application/dtos/invoice.dto";
+import { CATALOGO_DETRACCIONES_MAP } from "@/domain/value-objects/catalogo-detracciones.vo";
 
 interface CreateInvoiceUseCaseParams {
   tenantId: string;
@@ -96,7 +97,24 @@ export class CreateInvoiceUseCase {
     const totalIgv = items.reduce((acc, i) => acc + i.totalIgv, 0);
     const totalVenta = items.reduce((acc, i) => acc + i.totalItem, 0);
 
-    // 4. Crear la factura
+    // 4. Calcular detracción si aplica
+    // El porcentaje puede venir explícito en el DTO o inferirse del catálogo SUNAT (Catálogo 54)
+    let montoDetraccion: number | undefined;
+    let porcentajeDetraccion: number | undefined;
+
+    if (dto.afectoDetraccion && dto.codigoDetraccion) {
+      const catalogEntry = CATALOGO_DETRACCIONES_MAP[dto.codigoDetraccion];
+      porcentajeDetraccion =
+        dto.porcentajeDetraccion ?? catalogEntry?.porcentaje;
+
+      if (porcentajeDetraccion !== undefined) {
+        montoDetraccion = Number(
+          (totalVenta * (porcentajeDetraccion / 100)).toFixed(2)
+        );
+      }
+    }
+
+    // 5. Crear la factura
     const invoice = await invoiceRepository.create({
       tenantId,
       companyId: dto.companyId,
@@ -118,6 +136,12 @@ export class CreateInvoiceUseCase {
       totalIgv: Number(totalIgv.toFixed(2)),
       totalDescuento: 0,
       totalVenta: Number(totalVenta.toFixed(2)),
+      // Detracción
+      afectoDetraccion: dto.afectoDetraccion ?? false,
+      codigoDetraccion: dto.afectoDetraccion ? dto.codigoDetraccion : undefined,
+      porcentajeDetraccion: dto.afectoDetraccion ? porcentajeDetraccion : undefined,
+      montoDetraccion: dto.afectoDetraccion ? montoDetraccion : undefined,
+      medioPagoDetraccion: dto.afectoDetraccion ? dto.medioPagoDetraccion : undefined,
       nubefactEnviado: false,
       sunatEstado: SunatEstado.PENDIENTE,
       documentoRelacionado: dto.documentoRelacionado,

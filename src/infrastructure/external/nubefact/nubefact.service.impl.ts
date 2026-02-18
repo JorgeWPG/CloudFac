@@ -14,10 +14,16 @@ export class NubefactServiceImpl implements NubefactService {
   private async getCredentials(companyId: string): Promise<{
     token: string;
     url: string;
+    detraccionCuentaBn?: string;
   }> {
     const company = await prisma.company.findUniqueOrThrow({
       where: { id: companyId },
-      select: { nubefactToken: true, nubefactUrl: true, ruc: true },
+      select: {
+        nubefactToken: true,
+        nubefactUrl: true,
+        ruc: true,
+        detraccionCuentaBn: true,
+      },
     });
 
     const token = company.nubefactToken ?? process.env.NUBEFACT_TOKEN;
@@ -28,13 +34,17 @@ export class NubefactServiceImpl implements NubefactService {
         "Credenciales de NubeFact no configuradas para esta empresa."
       );
     }
-    return { token, url };
+    return {
+      token,
+      url,
+      detraccionCuentaBn: company.detraccionCuentaBn ?? undefined,
+    };
   }
 
   async send(invoice: Invoice): Promise<NubefactRespuesta> {
-    const { token, url } = await this.getCredentials(invoice.companyId);
+    const { token, url, detraccionCuentaBn } = await this.getCredentials(invoice.companyId);
 
-    const payload = this.buildPayload(invoice);
+    const payload = this.buildPayload(invoice, detraccionCuentaBn);
 
     try {
       const response = await axios.post<NubefactRespuesta>(url, payload, {
@@ -96,11 +106,14 @@ export class NubefactServiceImpl implements NubefactService {
     }
   }
 
-  private buildPayload(invoice: Invoice): Record<string, unknown> {
+  private buildPayload(
+    invoice: Invoice,
+    detraccionCuentaBn?: string
+  ): Record<string, unknown> {
     const tipoSunat =
       TIPO_COMPROBANTE_SUNAT_CODE[invoice.tipoComprobante];
 
-    return {
+    const payload: Record<string, unknown> = {
       operacion: "generar_comprobante",
       tipo_de_comprobante: parseInt(tipoSunat),
       serie: invoice.serie,
@@ -135,5 +148,25 @@ export class NubefactServiceImpl implements NubefactService {
         anticipo_regularizacion: false,
       })),
     };
+
+    // Detracción SPOT — solo se incluye si la factura tiene detracción activa
+    if (
+      invoice.afectoDetraccion &&
+      invoice.codigoDetraccion &&
+      invoice.porcentajeDetraccion !== undefined &&
+      invoice.montoDetraccion !== undefined &&
+      invoice.medioPagoDetraccion
+    ) {
+      payload["datos_del_detraccion"] = {
+        codigo_de_bien_o_servicio: invoice.codigoDetraccion,
+        porcentaje: invoice.porcentajeDetraccion,
+        monto: invoice.montoDetraccion,
+        codigo_de_medio_de_pago: invoice.medioPagoDetraccion,
+        // La cuenta BN proviene de la configuración de empresa (obligatoria para NubeFact)
+        ...(detraccionCuentaBn && { numero_cuenta: detraccionCuentaBn }),
+      };
+    }
+
+    return payload;
   }
 }

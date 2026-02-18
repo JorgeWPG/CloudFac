@@ -62,6 +62,18 @@ export interface Invoice {
   sunatEstado: SunatEstado;
   sunatDescripcion?: string;
 
+  // Detracción SPOT
+  /** true si el comprobante está sujeto al sistema de detracciones */
+  afectoDetraccion: boolean;
+  /** Código del bien/servicio — Catálogo 54 SUNAT (ej: "022", "027") */
+  codigoDetraccion?: string;
+  /** Porcentaje de detracción (ej: 12 para 12%) */
+  porcentajeDetraccion?: number;
+  /** Monto de detracción = totalVenta × (porcentajeDetraccion / 100) */
+  montoDetraccion?: number;
+  /** Medio de pago — TABLA 1 SUNAT (ej: "001"=Depósito en cuenta) */
+  medioPagoDetraccion?: string;
+
   // Notas de crédito / débito
   documentoRelacionado?: string;
   motivoNota?: string;

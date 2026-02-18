@@ -18,6 +18,23 @@ export const CreateCompanySchema = z.object({
   web: z.string().url().optional(),
   nubefactToken: z.string().optional(),
   nubefactUrl: z.string().url().optional(),
+  // Detracción
+  detraccionCuentaBn: z
+    .string()
+    .max(20, "Máximo 20 caracteres")
+    .optional()
+    .or(z.literal("")),
+  // IGV global
+  tasaIgvDefecto: z
+    .number()
+    .nonnegative("La tasa IGV no puede ser negativa")
+    .max(100)
+    .default(18),
+  // Credenciales SIRE
+  sunatUsuario: z.string().optional(),
+  sunatClave: z.string().optional(),
+  sireClientId: z.string().optional(),
+  sireClientSecret: z.string().optional(),
 });
 
 export type CreateCompanyDto = z.infer<typeof CreateCompanySchema>;

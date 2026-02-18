@@ -123,6 +123,12 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
           totalIgv: data.totalIgv,
           totalDescuento: data.totalDescuento,
           totalVenta: data.totalVenta,
+          // Detracción SPOT
+          afectoDetraccion: data.afectoDetraccion ?? false,
+          codigoDetraccion: data.codigoDetraccion,
+          porcentajeDetraccion: data.porcentajeDetraccion,
+          montoDetraccion: data.montoDetraccion,
+          medioPagoDetraccion: data.medioPagoDetraccion,
           nubefactEnviado: data.nubefactEnviado,
           sunatEstado: data.sunatEstado,
           documentoRelacionado: data.documentoRelacionado,
@@ -181,7 +187,9 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
       where: { id },
       data: {
         sunatEstado,
-        ...(nubefactRespuesta && { nubefactRespuesta }),
+        ...(nubefactRespuesta && {
+          nubefactRespuesta: nubefactRespuesta as Prisma.InputJsonValue,
+        }),
       },
       include: { items: true },
     });
@@ -208,6 +216,13 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
       totalDescuento: Number(record.totalDescuento),
       totalVenta: Number(record.totalVenta),
       tipoCambio: Number(record.tipoCambio),
+      // Detracción — convertir Decimal a number
+      porcentajeDetraccion: record.porcentajeDetraccion != null
+        ? Number(record.porcentajeDetraccion)
+        : undefined,
+      montoDetraccion: record.montoDetraccion != null
+        ? Number(record.montoDetraccion)
+        : undefined,
       items: record.items?.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (item: any) => ({

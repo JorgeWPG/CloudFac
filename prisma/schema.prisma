@@ -210,6 +210,24 @@ model Company {
   nubefactToken   String?  // Token de API NubeFact
   nubefactUrl     String?  // URL base NubeFact (producción / beta)
 
+  // Detracción — Banco de la Nación
+  /// Número de cuenta en el Banco de la Nación para depósito de detracciones
+  detraccionCuentaBn String?
+
+  // Configuración tributaria global
+  /// Tasa de IGV por defecto para esta empresa (ej. 18.00). Aplica a nuevos productos/ítems.
+  tasaIgvDefecto  Decimal  @default(18) @db.Decimal(5, 2)
+
+  // Credenciales SIRE (Sistema Integrado de Registros Electrónicos)
+  /// Usuario SOL de SUNAT para SIRE
+  sunatUsuario    String?
+  /// Clave SOL de SUNAT para SIRE (almacenar cifrada en producción)
+  sunatClave      String?
+  /// Client ID OAuth2 para integración SIRE
+  sireClientId    String?
+  /// Client Secret OAuth2 para integración SIRE (almacenar cifrada en producción)
+  sireClientSecret String?
+
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -431,6 +449,18 @@ model Invoice {
   nubefactHash       String?
   sunatEstado        SunatEstado @default(PENDIENTE)
   sunatDescripcion   String?
+
+  // Detracción SPOT (Sistema de Pago de Obligaciones Tributarias)
+  /// Indica si el comprobante está afecto al sistema de detracciones
+  afectoDetraccion      Boolean  @default(false)
+  /// Código del bien/servicio según Catálogo 54 SUNAT (ej: "022", "027")
+  codigoDetraccion      String?
+  /// Porcentaje de detracción aplicable (ej: 12.00 para 12%)
+  porcentajeDetraccion  Decimal? @db.Decimal(5, 2)
+  /// Importe de la detracción = totalVenta × (porcentajeDetraccion / 100)
+  montoDetraccion       Decimal? @db.Decimal(12, 2)
+  /// Medio de pago detracción según TABLA 1 SUNAT (001=Depósito, 003=Transferencia, etc.)
+  medioPagoDetraccion   String?
 
   // Para Notas de Crédito / Débito
   /// Número completo del comprobante afectado (ej: F001-00001234)
