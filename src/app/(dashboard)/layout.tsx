@@ -14,6 +14,7 @@ export default function DashboardLayout({
           {[
             { label: "Dashboard", href: "/dashboard" },
             { label: "Comprobantes", href: "/dashboard/invoices" },
+            { label: "+ Nueva Factura", href: "/invoices/new" },
             { label: "Clientes", href: "/dashboard/customers" },
             { label: "Productos", href: "/dashboard/products" },
             { label: "Empresas", href: "/dashboard/companies" },

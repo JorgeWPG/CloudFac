@@ -4,6 +4,7 @@ import {
   InvoiceFilters,
   PaginationOptions,
   PaginatedResult,
+  CuotaCreateInput,
 } from "@/domain/repositories/invoice.repository";
 import { Invoice } from "@/domain/entities/invoice.entity";
 import { SunatEstado } from "@/domain/value-objects/sunat-estado.vo";
@@ -13,7 +14,7 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
   async findById(id: string, tenantId: string): Promise<Invoice | null> {
     const record = await prisma.invoice.findFirst({
       where: { id, tenantId },
-      include: { items: true },
+      include: { items: true, cuotas: { orderBy: { numeroCuota: "asc" } } },
     });
     if (!record) return null;
     return this.toDomain(record);
@@ -25,6 +26,7 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
   ): Promise<Invoice | null> {
     const record = await prisma.invoice.findFirst({
       where: { companyId, numeroCompleto },
+      include: { cuotas: { orderBy: { numeroCuota: "asc" } } },
     });
     if (!record) return null;
     return this.toDomain(record);
@@ -84,9 +86,9 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
   }
 
   async create(
-    data: Omit<Invoice, "id" | "createdAt" | "updatedAt" | "items">
+    data: Omit<Invoice, "id" | "createdAt" | "updatedAt" | "items" | "cuotas">,
+    cuotas?: CuotaCreateInput[]
   ): Promise<Invoice> {
-    // Fetch the serie to get its string value before creating
     const serieRecord = await prisma.serie.findUnique({
       where: { id: data.serieId },
     });
@@ -94,8 +96,10 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
     const serieStr = serieRecord?.serieAlfanumerica ?? data.serie;
     const numeroCompleto = `${serieStr}-${data.correlativo}`;
 
+    // Convert CondicionPago numeric (1|2) to Prisma enum string
+    const condicionPagoEnum = data.condicionPago === 2 ? "CREDITO" : "CONTADO";
+
     const record = await prisma.$transaction(async (tx) => {
-      // Increment correlativo atomically
       await tx.serie.update({
         where: { id: data.serieId },
         data: { correlativo: { increment: 1 } },
@@ -123,14 +127,42 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
           totalIgv: data.totalIgv,
           totalDescuento: data.totalDescuento,
           totalVenta: data.totalVenta,
+          // Condición de pago
+          condicionPago: condicionPagoEnum,
+          // Detracciones
+          habilitadoDetraccion: data.habilitadoDetraccion,
+          codigoDetraccion: data.codigoDetraccion,
+          porcentajeDetraccion: data.porcentajeDetraccion,
+          medioPagoDetraccion: data.medioPagoDetraccion,
+          montoDetraccion: data.montoDetraccion,
+          numeroConstanciaDetraccion: data.numeroConstanciaDetraccion,
+          // NubeFact
           nubefactEnviado: data.nubefactEnviado,
           sunatEstado: data.sunatEstado,
           documentoRelacionado: data.documentoRelacionado,
           motivoNota: data.motivoNota,
           estado: data.estado,
           notas: data.notas,
+          // Cuotas a crédito
+          ...(cuotas && cuotas.length > 0
+            ? {
+                cuotas: {
+                  createMany: {
+                    data: cuotas.map((c) => ({
+                      tenantId: data.tenantId,
+                      numeroCuota: c.numeroCuota,
+                      monto: c.monto,
+                      fechaPago: c.fechaPago,
+                    })),
+                  },
+                },
+              }
+            : {}),
         },
-        include: { items: true },
+        include: {
+          items: true,
+          cuotas: { orderBy: { numeroCuota: "asc" } },
+        },
       });
     });
 
@@ -164,9 +196,15 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
         ...(data.sunatDescripcion !== undefined && {
           sunatDescripcion: data.sunatDescripcion,
         }),
+        ...(data.numeroConstanciaDetraccion !== undefined && {
+          numeroConstanciaDetraccion: data.numeroConstanciaDetraccion,
+        }),
         ...(data.notas !== undefined && { notas: data.notas }),
       },
-      include: { items: true },
+      include: {
+        items: true,
+        cuotas: { orderBy: { numeroCuota: "asc" } },
+      },
     });
     return this.toDomain(record);
   }
@@ -183,7 +221,10 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
         sunatEstado,
         ...(nubefactRespuesta && { nubefactRespuesta }),
       },
-      include: { items: true },
+      include: {
+        items: true,
+        cuotas: { orderBy: { numeroCuota: "asc" } },
+      },
     });
     return this.toDomain(record);
   }
@@ -198,8 +239,12 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toDomain(record: any): Invoice {
+    // Map Prisma CondicionPago enum → numeric 1|2
+    const condicionPago = record.condicionPago === "CREDITO" ? 2 : 1;
+
     return {
       ...record,
+      condicionPago,
       totalGravado: Number(record.totalGravado),
       totalExonerado: Number(record.totalExonerado),
       totalInafecto: Number(record.totalInafecto),
@@ -208,6 +253,12 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
       totalDescuento: Number(record.totalDescuento),
       totalVenta: Number(record.totalVenta),
       tipoCambio: Number(record.tipoCambio),
+      porcentajeDetraccion: record.porcentajeDetraccion != null
+        ? Number(record.porcentajeDetraccion)
+        : undefined,
+      montoDetraccion: record.montoDetraccion != null
+        ? Number(record.montoDetraccion)
+        : undefined,
       items: record.items?.map(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (item: any) => ({
@@ -220,6 +271,13 @@ export class PrismaInvoiceRepository implements InvoiceRepository {
           totalBaseImponible: Number(item.totalBaseImponible),
           totalIgv: Number(item.totalIgv),
           totalItem: Number(item.totalItem),
+        })
+      ),
+      cuotas: record.cuotas?.map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (cuota: any) => ({
+          ...cuota,
+          monto: Number(cuota.monto),
         })
       ),
     };

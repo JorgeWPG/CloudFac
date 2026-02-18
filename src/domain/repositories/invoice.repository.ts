@@ -28,6 +28,12 @@ export interface PaginatedResult<T> {
   totalPages: number;
 }
 
+export interface CuotaCreateInput {
+  numeroCuota: number;
+  monto: number;
+  fechaPago: Date;
+}
+
 export interface InvoiceRepository {
   findById(id: string, tenantId: string): Promise<Invoice | null>;
   findByNumeroCompleto(
@@ -39,7 +45,8 @@ export interface InvoiceRepository {
     pagination: PaginationOptions
   ): Promise<PaginatedResult<Invoice>>;
   create(
-    data: Omit<Invoice, "id" | "createdAt" | "updatedAt" | "items">
+    data: Omit<Invoice, "id" | "createdAt" | "updatedAt" | "items" | "cuotas">,
+    cuotas?: CuotaCreateInput[]
   ): Promise<Invoice>;
   update(id: string, tenantId: string, data: Partial<Invoice>): Promise<Invoice>;
   updateSunatEstado(

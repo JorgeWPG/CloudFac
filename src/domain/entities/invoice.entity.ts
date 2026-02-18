@@ -24,6 +24,21 @@ export interface InvoiceItem {
   updatedAt: Date;
 }
 
+/**
+ * Cuota de pago a crédito.
+ * La suma de todos los montos debe coincidir con el totalVenta del comprobante.
+ */
+export interface InvoiceCuota {
+  id: string;
+  tenantId: string;
+  invoiceId: string;
+  numeroCuota: number;
+  monto: number;
+  fechaPago: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Invoice {
   id: string;
   tenantId: string;
@@ -52,6 +67,24 @@ export interface Invoice {
   totalDescuento: number;
   totalVenta: number;
 
+  // Condición de pago (Manual NubeFact)
+  /** 1=Contado, 2=Crédito */
+  condicionPago: 1 | 2;
+
+  // Detracciones SUNAT
+  /** Indica si el comprobante tiene detracción habilitada */
+  habilitadoDetraccion: boolean;
+  /** Código del bien/servicio sujeto a detracción (Catálogo 54 SUNAT) */
+  codigoDetraccion?: string;
+  /** Porcentaje de detracción según Catálogo 54 */
+  porcentajeDetraccion?: number;
+  /** Medio de pago de la detracción (Tabla 1 SUNAT) */
+  medioPagoDetraccion?: string;
+  /** Monto calculado de detracción */
+  montoDetraccion?: number;
+  /** Número de constancia de detracción */
+  numeroConstanciaDetraccion?: string;
+
   // NubeFact
   nubefactEnviado: boolean;
   nubefactRespuesta?: Record<string, unknown>;
@@ -70,6 +103,7 @@ export interface Invoice {
   notas?: string;
 
   items?: InvoiceItem[];
+  cuotas?: InvoiceCuota[];
 
   createdAt: Date;
   updatedAt: Date;
