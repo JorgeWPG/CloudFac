@@ -3,7 +3,7 @@ import { PrismaClient, TipoComprobante } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("Iniciando seed de CloudFac...");
+  console.log("Iniciando seed de CloudFac...\n");
 
   // ── 1. Tenant demo ─────────────────────────────────────────
   const tenant = await prisma.tenant.upsert({
@@ -15,9 +15,9 @@ async function main() {
       plan: "STARTER",
     },
   });
-  console.log(`Tenant creado: ${tenant.name} (${tenant.id})`);
+  console.log(`✔ Tenant:          ${tenant.name} (${tenant.id})`);
 
-  // ── 2. Usuario admin ───────────────────────────────────────
+  // ── 2. Usuario admin ────────────────────────────────────────
   const user = await prisma.user.upsert({
     where: { email: "admin@cloudfac.pe" },
     update: {},
@@ -28,27 +28,29 @@ async function main() {
       role: "OWNER",
     },
   });
-  console.log(`Usuario creado: ${user.email}`);
+  console.log(`✔ Usuario:         ${user.email} (${user.role})`);
 
-  // ── 3. Empresa demo ────────────────────────────────────────
+  // ── 3. Empresa Demo SAC ─────────────────────────────────────
   const company = await prisma.company.upsert({
-    where: { tenantId_ruc: { tenantId: tenant.id, ruc: "20100070970" } },
+    where: {
+      tenantId_ruc: { tenantId: tenant.id, ruc: "20123456789" },
+    },
     update: {},
     create: {
       tenantId: tenant.id,
-      ruc: "20100070970",
-      razonSocial: "EMPRESA DEMO S.A.C.",
-      nombreComercial: "Demo Empresa",
-      direccion: "AV. EJEMPLO 123",
+      ruc: "20123456789",
+      razonSocial: "EMPRESA DEMO SAC",
+      nombreComercial: "Empresa Demo",
+      direccion: "AV. DEMO 123, LIMA",
       ubigeo: "150101",
       departamento: "LIMA",
       provincia: "LIMA",
       distrito: "LIMA",
     },
   });
-  console.log(`Empresa creada: ${company.razonSocial} (RUC: ${company.ruc})`);
+  console.log(`✔ Empresa:         ${company.razonSocial} (RUC: ${company.ruc})`);
 
-  // ── 4. Establecimiento principal ────────────────────────────
+  // ── 4. Establecimiento 0000 — Lima ──────────────────────────
   const establishment = await prisma.establishment.upsert({
     where: {
       companyId_codigoSunat: {
@@ -62,22 +64,19 @@ async function main() {
       companyId: company.id,
       codigoSunat: "0000",
       descripcion: "Casa Matriz",
-      direccion: "AV. EJEMPLO 123",
+      direccion: "AV. DEMO 123, LIMA",
       ubigeo: "150101",
       isDefault: true,
     },
   });
-  console.log(`Establecimiento: ${establishment.descripcion} (${establishment.codigoSunat})`);
+  console.log(
+    `✔ Establecimiento: ${establishment.descripcion} (${establishment.codigoSunat}) — Lima`
+  );
 
-  // ── 5. Series ──────────────────────────────────────────────
-  const seriesData: Array<{
-    tipo: TipoComprobante;
-    serie: string;
-  }> = [
+  // ── 5. Series: F001 (Factura) y B001 (Boleta) ───────────────
+  const seriesData: Array<{ tipo: TipoComprobante; serie: string }> = [
     { tipo: "FACTURA", serie: "F001" },
     { tipo: "BOLETA", serie: "B001" },
-    { tipo: "NOTA_CREDITO", serie: "FC01" },
-    { tipo: "NOTA_DEBITO", serie: "FD01" },
   ];
 
   for (const s of seriesData) {
@@ -99,76 +98,75 @@ async function main() {
         correlativo: 0,
       },
     });
-    console.log(`Serie creada: ${s.serie} (${s.tipo})`);
+    console.log(`✔ Serie:           ${s.serie} (${s.tipo})`);
   }
 
-  // ── 6. Cliente demo ────────────────────────────────────────
-  await prisma.customer.upsert({
-    where: {
-      companyId_tipoDocumento_numeroDocumento: {
-        companyId: company.id,
-        tipoDocumento: "RUC",
-        numeroDocumento: "20521234567",
-      },
-    },
-    update: {},
-    create: {
-      tenantId: tenant.id,
-      companyId: company.id,
-      tipoDocumento: "RUC",
-      numeroDocumento: "20521234567",
-      razonSocial: "CLIENTE DEMO S.A.C.",
-      direccion: "AV. CLIENTE 456, LIMA",
-      email: "cliente@demo.com",
-    },
-  });
-  console.log("Cliente demo creado.");
-
-  // ── 7. Productos demo ──────────────────────────────────────
-  const productos = [
+  // ── 6. Productos ─────────────────────────────────────────────
+  // IGV 18 % — Afectación 10 (Gravado Op. Onerosa, catálogo 07 SUNAT)
+  const productosData = [
     {
       codigo: "PROD-001",
-      descripcion: "Laptop Dell Inspiron 15",
-      unidadMedida: "NIU",
+      descripcion: "Laptop",
+      unidadMedida: "NIU", // Unidad
       isService: false,
       stockControl: true,
       stock: 10,
       stockMinimo: 2,
-      precio: 2500.0,
-      precioConIgv: 2950.0,
+      precio: 2500.0,          // Sin IGV
+      precioConIgv: 2950.0,    // 2500 × 1.18
+      igvPorcentaje: 18,
+      afectacionIgv: "10",
+    },
+    {
+      codigo: "PROD-002",
+      descripcion: "Mouse",
+      unidadMedida: "NIU",
+      isService: false,
+      stockControl: true,
+      stock: 50,
+      stockMinimo: 5,
+      precio: 50.0,            // Sin IGV
+      precioConIgv: 59.0,      // 50 × 1.18
+      igvPorcentaje: 18,
+      afectacionIgv: "10",
     },
     {
       codigo: "SERV-001",
-      descripcion: "Consultoría en Sistemas",
-      unidadMedida: "ZZ",
+      descripcion: "Consultoría TI",
+      unidadMedida: "ZZ", // Servicio
       isService: true,
       stockControl: false,
       stock: 0,
       stockMinimo: 0,
-      precio: 150.0,
-      precioConIgv: 177.0,
+      precio: 150.0,           // Sin IGV
+      precioConIgv: 177.0,     // 150 × 1.18
+      igvPorcentaje: 18,
+      afectacionIgv: "10",
     },
   ];
 
-  for (const prod of productos) {
+  for (const prod of productosData) {
     const existing = await prisma.product.findFirst({
       where: { tenantId: tenant.id, companyId: company.id, codigo: prod.codigo },
     });
+
     if (!existing) {
       await prisma.product.create({
-        data: {
-          tenantId: tenant.id,
-          companyId: company.id,
-          ...prod,
-          igvPorcentaje: 18,
-          afectacionIgv: "10",
-        },
+        data: { tenantId: tenant.id, companyId: company.id, ...prod },
       });
-      console.log(`Producto creado: ${prod.descripcion}`);
     }
+
+    const tag = prod.isService ? "Servicio" : "Producto con stock";
+    console.log(`✔ Producto:        ${prod.descripcion} (${tag}) — IGV ${prod.igvPorcentaje}% / Afect. ${prod.afectacionIgv}`);
   }
 
   console.log("\nSeed completado exitosamente.");
+  console.log("─────────────────────────────────────────────");
+  console.log(`Empresa:     EMPRESA DEMO SAC  |  RUC: 20123456789`);
+  console.log(`Establecim.: 0000 Casa Matriz  |  Lima`);
+  console.log(`Series:      F001 (Factura), B001 (Boleta)`);
+  console.log(`Productos:   Laptop, Mouse (stock) | Consultoría TI (servicio)`);
+  console.log("─────────────────────────────────────────────");
 }
 
 main()
