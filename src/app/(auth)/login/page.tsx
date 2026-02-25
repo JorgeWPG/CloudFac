@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Iniciar Sesión",
@@ -15,43 +16,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* El formulario real se implementará con NextAuth */}
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Correo electrónico
-            </label>
-            <input
-              id="email"
-              type="email"
-              placeholder="empresa@ejemplo.com"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Contraseña
-            </label>
-            <input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors"
-          >
-            Ingresar
-          </button>
-        </div>
+        <LoginForm />
       </div>
     </div>
   );
