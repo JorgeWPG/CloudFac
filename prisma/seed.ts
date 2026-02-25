@@ -1,4 +1,5 @@
 import { PrismaClient, TipoComprobante } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -18,17 +19,19 @@ async function main() {
   console.log(`Tenant creado: ${tenant.name} (${tenant.id})`);
 
   // ── 2. Usuario admin ───────────────────────────────────────
+  const passwordHash = await bcrypt.hash("admin123", 10);
   const user = await prisma.user.upsert({
     where: { email: "admin@cloudfac.pe" },
-    update: {},
+    update: { passwordHash },
     create: {
       tenantId: tenant.id,
       name: "Administrador Demo",
       email: "admin@cloudfac.pe",
+      passwordHash,
       role: "OWNER",
     },
   });
-  console.log(`Usuario creado: ${user.email}`);
+  console.log(`Usuario creado: ${user.email} (contraseña: admin123)`);
 
   // ── 3. Empresa demo ────────────────────────────────────────
   const company = await prisma.company.upsert({
